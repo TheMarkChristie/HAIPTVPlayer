@@ -1,0 +1,8 @@
+.env
+research/
+docs/
+tools/
+__pycache__/
+.venv-ha/
+.pytest_cache/
+tests/out/

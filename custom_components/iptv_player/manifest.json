@@ -1,0 +1,25 @@
+{
+  "domain": "iptv_player",
+  "name": "IPTV Player",
+  "codeowners": [
+    "@TheMarkChristie"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "http",
+    "frontend",
+    "lovelace",
+    "websocket_api",
+    "media_source"
+  ],
+  "after_dependencies": [
+    "media_player",
+    "cast"
+  ],
+  "documentation": "https://github.com/TheMarkChristie/HAIPTVPlayer",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/TheMarkChristie/HAIPTVPlayer/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

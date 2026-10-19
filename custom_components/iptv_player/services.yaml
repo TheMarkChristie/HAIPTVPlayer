@@ -1,0 +1,41 @@
+play:
+  name: Play
+  description: Play a channel on a TV (a Google Cast device or any player that takes a stream address).
+  fields:
+    channel:
+      name: Channel
+      description: The channel's name as the card shows it, or its id.
+      required: true
+      example: "BBC One Scotland"
+      selector:
+        text:
+    player:
+      name: Player
+      description: The TV to play on.
+      required: true
+      selector:
+        entity:
+          domain: media_player
+    entry_id:
+      name: Source
+      description: Only look in this entry (when two sources have a channel with the same name).
+      selector:
+        config_entry:
+          integration: iptv_player
+
+refresh:
+  name: Refresh
+  description: Read the channel list again now and download the guide again.
+  fields:
+    entry_id:
+      name: Source
+      description: Only this entry; every entry when left out.
+      selector:
+        config_entry:
+          integration: iptv_player
+    guide:
+      name: Guide too
+      description: Download the guide as well.
+      default: true
+      selector:
+        boolean:

@@ -1,0 +1,133 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Legg til IPTV",
+        "description": "Logg inn hos IPTV-leverandøren, eller legg til en spillelisteadresse.",
+        "menu_options": {
+          "xtream": "Innlogging hos leverandør (brukernavn og passord)",
+          "m3u": "M3U-spillelisteadresse"
+        }
+      },
+      "xtream": {
+        "title": "Innlogging hos leverandør",
+        "description": "Serveradressen, brukernavnet og passordet leverandøren sendte (Xtream Codes; de fleste leverandører bruker det).",
+        "data": {
+          "name": "Navn",
+          "url": "Serveradresse",
+          "username": "Brukernavn",
+          "password": "Passord"
+        },
+        "data_description": {
+          "name": "Hva kortet kaller denne kilden. La stå tomt for serverens navn.",
+          "url": "For eksempel http://leverandor.example:8080",
+          "password": "Blir værende på denne Home Assistant: strømmene videresendes, så passordet når aldri en nettleser eller en TV."
+        }
+      },
+      "m3u": {
+        "title": "Spilleliste",
+        "description": "Adressen til en M3U- eller M3U8-spilleliste.",
+        "data": {
+          "name": "Navn",
+          "url": "Spillelisteadresse"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Passord hos leverandør",
+        "description": "Leverandøren avviste den lagrede innloggingen for {name}. Skriv inn passordet på nytt.",
+        "data": {
+          "password": "Passord"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Serveren svarte ikke på den adressen.",
+      "invalid_auth": "Leverandøren avviste brukernavnet og passordet, eller kontoen er ikke aktiv.",
+      "no_playlist": "Fant ingen spilleliste med kanaler på den adressen."
+    },
+    "abort": {
+      "already_configured": "Denne kilden er allerede satt opp.",
+      "reauth_successful": "Passordet ble oppdatert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Valg for IPTV Player",
+        "data": {
+          "provider_guide": "Bruk leverandørens egen programguide",
+          "guide_urls": "Flere guideadresser",
+          "guide_hours": "Timer fremover i guiden",
+          "guide_hour": "Last ned guiden klokka (time)",
+          "players": "TV-er for Spill på TV",
+          "output": "Strømformat",
+          "user_agent": "Brukeragent"
+        },
+        "data_description": {
+          "guide_urls": "XMLTV-adresser, én per linje. De fyller inn kanalene leverandørens guide mangler, matchet på guide-id og så på navn. Filer over 60 MB avvises.",
+          "players": "La stå tomt for å tilby husets Google Cast-enheter.",
+          "output": "m3u8 spilles overalt, også på iPhone; ts bare i nettlesere som kjører mpegts.js.",
+          "user_agent": "Sendes til leverandøren med hver forespørsel."
+        }
+      }
+    }
+  },
+  "selector": {
+    "output": {
+      "options": {
+        "m3u8": "HLS (m3u8)",
+        "ts": "MPEG-TS (ts)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "channels_shown": {
+        "name": "Kanaler som vises"
+      },
+      "guide_updated": {
+        "name": "Guide oppdatert"
+      },
+      "subscription_ends": {
+        "name": "Abonnementet slutter"
+      },
+      "connections": {
+        "name": "Tilkoblinger i bruk"
+      }
+    }
+  },
+  "services": {
+    "play": {
+      "name": "Spill av",
+      "description": "Spill en kanal på en TV (en Google Cast-enhet eller en spiller som tar en strømadresse).",
+      "fields": {
+        "channel": {
+          "name": "Kanal",
+          "description": "Kanalens navn slik kortet viser det, eller id-en."
+        },
+        "player": {
+          "name": "Spiller",
+          "description": "TV-en det skal spilles på."
+        },
+        "entry_id": {
+          "name": "Kilde",
+          "description": "Se bare i denne kilden (når to kilder har en kanal med samme navn)."
+        }
+      }
+    },
+    "refresh": {
+      "name": "Oppdater",
+      "description": "Les kanallisten på nytt nå og last ned guiden på nytt.",
+      "fields": {
+        "entry_id": {
+          "name": "Kilde",
+          "description": "Bare denne kilden; alle når feltet står tomt."
+        },
+        "guide": {
+          "name": "Guiden også",
+          "description": "Last ned guiden også."
+        }
+      }
+    }
+  }
+}

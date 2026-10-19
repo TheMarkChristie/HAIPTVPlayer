@@ -1,0 +1,133 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add IPTV",
+        "description": "Sign in to your IPTV provider, or add a playlist address.",
+        "menu_options": {
+          "xtream": "Provider login (username and password)",
+          "m3u": "M3U playlist address"
+        }
+      },
+      "xtream": {
+        "title": "Provider login",
+        "description": "The server address, username and password your provider sent (Xtream Codes; most providers use it).",
+        "data": {
+          "name": "Name",
+          "url": "Server address",
+          "username": "Username",
+          "password": "Password"
+        },
+        "data_description": {
+          "name": "What the card calls this source. Leave empty for the server's name.",
+          "url": "For example http://provider.example:8080",
+          "password": "Stays on this Home Assistant: streams are relayed, so it never reaches a browser or a TV."
+        }
+      },
+      "m3u": {
+        "title": "Playlist",
+        "description": "The address of an M3U or M3U8 playlist.",
+        "data": {
+          "name": "Name",
+          "url": "Playlist address"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Provider password",
+        "description": "The provider refused the saved login for {name}. Enter the password again.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "The server did not answer at that address.",
+      "invalid_auth": "The provider refused the username and password, or the account is not active.",
+      "no_playlist": "No playlist with channels was found at that address."
+    },
+    "abort": {
+      "already_configured": "This source is already set up.",
+      "reauth_successful": "The password was updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "IPTV Player options",
+        "data": {
+          "provider_guide": "Use the provider's own guide",
+          "guide_urls": "More guide addresses",
+          "guide_hours": "Guide hours ahead",
+          "guide_hour": "Download the guide at (hour)",
+          "players": "TVs for Play on TV",
+          "output": "Stream format",
+          "user_agent": "User agent"
+        },
+        "data_description": {
+          "guide_urls": "XMLTV addresses, one per line. They fill the channels the provider's guide misses, matched by guide id and then by name. Files over 60 MB are refused.",
+          "players": "Leave empty to offer the house's Google Cast devices.",
+          "output": "m3u8 plays everywhere, iPhones included; ts only in browsers that run mpegts.js.",
+          "user_agent": "Sent to the provider with every request."
+        }
+      }
+    }
+  },
+  "selector": {
+    "output": {
+      "options": {
+        "m3u8": "HLS (m3u8)",
+        "ts": "MPEG-TS (ts)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "channels_shown": {
+        "name": "Channels shown"
+      },
+      "guide_updated": {
+        "name": "Guide updated"
+      },
+      "subscription_ends": {
+        "name": "Subscription ends"
+      },
+      "connections": {
+        "name": "Connections in use"
+      }
+    }
+  },
+  "services": {
+    "play": {
+      "name": "Play",
+      "description": "Play a channel on a TV (a Google Cast device or any player that takes a stream address).",
+      "fields": {
+        "channel": {
+          "name": "Channel",
+          "description": "The channel's name as the card shows it, or its id."
+        },
+        "player": {
+          "name": "Player",
+          "description": "The TV to play on."
+        },
+        "entry_id": {
+          "name": "Source",
+          "description": "Only look in this entry (when two sources have a channel with the same name)."
+        }
+      }
+    },
+    "refresh": {
+      "name": "Refresh",
+      "description": "Read the channel list again now and download the guide again.",
+      "fields": {
+        "entry_id": {
+          "name": "Source",
+          "description": "Only this entry; every entry when left out."
+        },
+        "guide": {
+          "name": "Guide too",
+          "description": "Download the guide as well."
+        }
+      }
+    }
+  }
+}
