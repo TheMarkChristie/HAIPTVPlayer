@@ -30,6 +30,7 @@ from .const import (
     PLAY_HLS, PLAY_RAW, PLAYLIST_MAX_BYTES, RELAY_URL, SEGMENT_CHUNK, SESSION_IDLE_SECONDS, SESSION_MAX_HOURS, SESSIONS_MAX,
 )
 from .hls import extension, is_playlist, rewrite
+from .net import TooBig, read_capped
 
 _LOGGER = logging.getLogger(__name__)
 URLS_MAX = 3000
@@ -172,9 +173,9 @@ class _RelayView(HomeAssistantView):
         session = async_get_clientsession(self.hass)
         try:
             async with session.get(url, headers=s.headers, timeout=aiohttp.ClientTimeout(total=20)) as resp:
-                body = await resp.content.read(PLAYLIST_MAX_BYTES)
+                body = await read_capped(resp, PLAYLIST_MAX_BYTES)
                 return resp.status, str(resp.url), body.decode("utf-8", "replace") if is_playlist(body) else ""
-        except (aiohttp.ClientError, TimeoutError) as err:
+        except (aiohttp.ClientError, TimeoutError, TooBig) as err:
             _LOGGER.debug("Playlist for %s not read: %s", s.channel_key, type(err).__name__)
             return 504, url, ""
 

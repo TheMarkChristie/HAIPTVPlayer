@@ -179,3 +179,30 @@ async def test_catalog_cached_across_restart(hass: HomeAssistant, provider, aioc
     assert asked == 1 and again == 1                      # the channel list came from the cache, not the provider
     assert entry.runtime_data.catalog is not None and len(entry.runtime_data.catalog.channels) == 4
     assert time.time() - entry.runtime_data.catalog_at < 60
+
+
+async def test_read_capped_reads_every_chunk(hass: HomeAssistant) -> None:
+    """A body that arrives in pieces is read whole (StreamReader.read(n) stops at what has arrived)."""
+    import asyncio
+    from unittest import mock
+
+    from aiohttp.streams import StreamReader
+
+    from custom_components.iptv_player.net import TooBig, read_capped
+
+    def answer() -> mock.Mock:
+        stream = StreamReader(mock.Mock(_reading_paused=False), limit=2**16)
+        stream.feed_data(b"#EXTM3U\n" + b"a" * 100)
+        loop = asyncio.get_running_loop()
+        loop.call_soon(stream.feed_data, b"b" * 100)
+        loop.call_soon(stream.feed_eof)
+        return mock.Mock(content=stream)
+
+    assert len(await answer().content.read(10_000)) == 108          # what the old code got
+    assert len(await read_capped(answer(), 10_000)) == 208
+    try:
+        await read_capped(answer(), 150)
+    except TooBig:
+        pass
+    else:
+        raise AssertionError("no limit")

@@ -28,6 +28,7 @@ from .const import (
     PROVIDER_TIMEOUT_SECONDS, STORE_VERSION,
 )
 from .guide import GuideManager
+from .net import TooBig, read_capped
 from .model import Catalog, Channel, Group, apply_changes, catalog_from_m3u, catalog_from_xtream, normal_selection, shown_channels
 from .xtream import XtreamAuthError, XtreamClient, XtreamError
 
@@ -166,11 +167,11 @@ class IPTVCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                    timeout=aiohttp.ClientTimeout(total=PROVIDER_TIMEOUT_SECONDS)) as resp:
                 if resp.status >= 400:
                     raise SourceError(f"the playlist address answered HTTP {resp.status}")
-                body = await resp.content.read(PLAYLIST_MAX_BYTES + 1)
+                body = await read_capped(resp, PLAYLIST_MAX_BYTES)
+        except TooBig as err:
+            raise SourceError("the playlist is over 30 MB") from err
         except (aiohttp.ClientError, TimeoutError) as err:
             raise SourceError(f"{type(err).__name__}: {err}") from err
-        if len(body) > PLAYLIST_MAX_BYTES:
-            raise SourceError("the playlist is over 30 MB")
         text = body.decode("utf-8", "replace")
         entries = m3u.parse(text)
         if not entries:

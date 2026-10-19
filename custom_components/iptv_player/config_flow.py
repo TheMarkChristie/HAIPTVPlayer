@@ -20,6 +20,7 @@ from .const import (
     DEFAULT_OUTPUT, DEFAULT_USER_AGENT, DOMAIN, FREE_UK_GUIDE, KIND_M3U, KIND_XTREAM, PROVIDER_TIMEOUT_SECONDS,
 )
 from .guide import configured_urls
+from .net import read_capped
 from .xtream import XtreamAuthError, XtreamClient, XtreamError
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ async def _check_m3u(hass: HomeAssistant, url: str) -> dict[str, Any]:
                            timeout=aiohttp.ClientTimeout(total=PROVIDER_TIMEOUT_SECONDS)) as resp:
         if resp.status >= 400:
             raise ValueError(f"HTTP {resp.status}")
-        text = (await resp.content.read(30 * 1024 * 1024)).decode("utf-8", "replace")
+        text = (await read_capped(resp, 30 * 1024 * 1024)).decode("utf-8", "replace")
     entries = m3u.parse(text)
     if not entries:
         raise ValueError("no channels")

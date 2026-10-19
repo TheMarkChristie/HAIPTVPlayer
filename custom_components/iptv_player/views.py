@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import LOGO_URL
+from .net import TooBig, read_capped
 
 _LOGGER = logging.getLogger(__name__)
 CACHE_MAX = 400
@@ -64,10 +65,8 @@ class LogoView(HomeAssistantView):
                 ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
                 if resp.status >= 400 or not ctype.startswith("image/"):
                     raise ValueError(f"HTTP {resp.status} {ctype}")
-                body = await resp.content.read(LOGO_MAX_BYTES + 1)
-                if len(body) > LOGO_MAX_BYTES:
-                    raise ValueError("over 1 MB")
-        except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+                body = await read_capped(resp, LOGO_MAX_BYTES)
+        except (aiohttp.ClientError, TimeoutError, ValueError, TooBig) as err:
             _LOGGER.debug("Logo %s not read: %s", key, err)
             self._failed[key] = time.monotonic()
             if len(self._failed) > 2000:
