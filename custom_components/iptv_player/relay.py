@@ -29,7 +29,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .const import (
     PLAY_HLS, PLAY_RAW, PLAYLIST_MAX_BYTES, RELAY_URL, SEGMENT_CHUNK, SESSION_IDLE_SECONDS, SESSION_MAX_HOURS, SESSIONS_MAX,
 )
-from .hls import extension, is_playlist, rewrite
+from .hls import extension, is_playlist, rewrite, trim_live
 from .net import TooBig, read_capped
 
 _LOGGER = logging.getLogger(__name__)
@@ -180,7 +180,7 @@ class _RelayView(HomeAssistantView):
             return 504, url, ""
 
     def _playlist_response(self, s: Session, base: str, text: str) -> web.Response:
-        return web.Response(text=rewrite(text, base, s.register), content_type="application/vnd.apple.mpegurl",
+        return web.Response(text=rewrite(trim_live(text), base, s.register), content_type="application/vnd.apple.mpegurl",
                             headers=_headers({"Cache-Control": "no-store"}))
 
     def _refused(self, status: int) -> web.Response:

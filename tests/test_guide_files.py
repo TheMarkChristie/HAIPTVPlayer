@@ -122,3 +122,37 @@ def test_is_playlist_and_extension():
     assert not hls.is_playlist(b"G@\x11")
     assert hls.extension("http://a/b/c.TS?x=1") == ".ts"
     assert hls.extension("http://a/hls/abc") == ".bin"
+
+
+NRK_LONG = ("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:4\n#EXT-X-MEDIA-SEQUENCE:1000\n"
+            "#EXT-X-PROGRAM-DATE-TIME:2026-10-19T04:38:00.759Z\n#EXT-X-KEY:METHOD=AES-128,URI=\"https://k/1.key\"\n"
+            + "".join(f"#EXTINF:3.2,\nm_{i}.ts\n" + ("#EXT-X-DISCONTINUITY\n" if i == 5 else "") for i in range(100)))
+
+
+def test_trim_live_keeps_the_live_edge():
+    out = hls.trim_live(NRK_LONG, keep=30)
+    lines = out.splitlines()
+    assert lines[0] == "#EXTM3U" and "#EXT-X-MEDIA-SEQUENCE:1070" in lines
+    assert "#EXT-X-DISCONTINUITY-SEQUENCE:1" in lines
+    uris = [line for line in lines if not line.startswith("#")]
+    assert uris[0] == "m_70.ts" and uris[-1] == "m_99.ts" and len(uris) == 30
+    first = lines.index("m_70.ts")
+    assert any(line.startswith("#EXT-X-KEY:METHOD=AES-128") for line in lines[:first])    # the key in force carried over
+
+
+def test_trim_live_leaves_short_vod_and_master():
+    assert hls.trim_live(XTREAM) == XTREAM
+    assert hls.trim_live(MASTER) == MASTER
+    vod = NRK_LONG + "#EXT-X-ENDLIST\n"
+    assert hls.trim_live(vod, keep=30) == vod
+
+
+def test_open_text_refuses_non_xml(tmp_path):
+    p = tmp_path / "g.xml"
+    p.write_bytes(b"(\xb5/\xfd\x00\x58zstd-ish")
+    try:
+        xmltv.read_channels(str(p))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("read a non-XML file as a guide")

@@ -155,12 +155,17 @@ class GuideManager:
         session = async_get_clientsession(self.hass)
         tmp = s.path + ".part"
         limit = GUIDE_MAX_DOWNLOAD_MB * 1024 * 1024
-        headers = {"User-Agent": self.coordinator.user_agent}
+        # gzip only: aiohttp would also offer brotli and zstd, which the reader cannot open (a provider chose one on
+        # 19 Oct 2026 and the guide read as empty)
+        headers = {"User-Agent": self.coordinator.user_agent, "Accept-Encoding": "gzip"}
         try:
             async with session.get(s.url, headers=headers, timeout=aiohttp.ClientTimeout(total=600, sock_read=60),
                                    auto_decompress=False) as resp:
                 if resp.status >= 400:
                     raise OSError(f"HTTP {resp.status}")
+                encoding = resp.headers.get("Content-Encoding", "").lower()
+                if encoding not in ("", "gzip", "identity", "x-gzip"):
+                    raise OSError(f"answered in {encoding}, which cannot be read")
                 length = resp.headers.get("Content-Length", "")
                 if length.isdigit() and int(length) > limit:
                     raise OSError(f"{int(length) // 1_000_000} MB is over the {GUIDE_MAX_DOWNLOAD_MB} MB limit")
@@ -204,8 +209,8 @@ class GuideManager:
                 if s.downloaded_at is not None:
                     try:
                         names = read_channels(s.path)
-                    except (OSError, EOFError) as err:
-                        s.error = f"unreadable: {type(err).__name__}"
+                    except (OSError, EOFError, ValueError) as err:
+                        s.error = f"unreadable: {err}"
                 s.channels = len(names)
                 guide_sources.append(GuideSource(s.label, names))
             matches = match_guides(channels, selection, guide_sources)
@@ -216,8 +221,8 @@ class GuideManager:
             for i, s in enumerate(sources):
                 try:
                     by_source.append(read_programmes(s.path, wanted[i], start, end, GUIDE_DESC_CHARS) if wanted[i] else {})
-                except (OSError, EOFError) as err:
-                    s.error = f"unreadable: {type(err).__name__}"
+                except (OSError, EOFError, ValueError) as err:
+                    s.error = f"unreadable: {err}"
                     by_source.append({})
             programmes = {key: by_source[src].get(gid, []) for key, (src, gid, _how) in matches.items()}
             return GuideState(guide_sources, matches, programmes, time.time())

@@ -23,10 +23,14 @@ CHUNK = 1 << 20
 
 
 def open_text(path: str) -> io.TextIOBase:
+    """The file as text: gzip by its first two bytes, else plain XML. Anything else (a brotli or zstd answer saved as
+    it came, an error page) raises ValueError rather than reading as a guide with no channels."""
     with open(path, "rb") as probe:
-        magic = probe.read(2)
-    if magic == b"\x1f\x8b":
+        head = probe.read(64)
+    if head[:2] == b"\x1f\x8b":
         return gzip.open(path, "rt", encoding="utf-8", errors="replace")
+    if not head.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"<"):
+        raise ValueError("not an XMLTV file")
     return open(path, encoding="utf-8", errors="replace")
 
 

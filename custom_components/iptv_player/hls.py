@@ -34,6 +34,65 @@ def _keep(uri: str) -> bool:
     return uri.startswith(("data:", "skd:")) or not uri
 
 
+LIVE_KEEP = 30
+_SEGMENT_TAGS = ("#EXTINF:", "#EXT-X-BYTERANGE:", "#EXT-X-DISCONTINUITY", "#EXT-X-PROGRAM-DATE-TIME:", "#EXT-X-KEY:",
+                 "#EXT-X-MAP:", "#EXT-X-GAP", "#EXT-X-BITRATE:", "#EXT-X-CUE", "#EXT-X-DATERANGE:", "#EXT-OATCLS")
+
+
+def trim_live(text: str, keep: int = LIVE_KEEP) -> str:
+    """A live media playlist cut to its last `keep` segments. Some channels list hours of rewind (NRK1: 3,394
+    segments); a player starts at the live edge anyway, and rewriting thousands of addresses every few seconds is
+    wasted work. The media and discontinuity sequence numbers move on by what was cut, and the key and init section
+    in force carry over to the first kept segment. Master playlists, finished (VOD) and low-latency playlists are
+    left as they are."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if any(line.startswith(("#EXT-X-ENDLIST", "#EXT-X-STREAM-INF", "#EXT-X-PART:", "#EXT-X-PART-INF"))
+           or line == "#EXT-X-PLAYLIST-TYPE:VOD" for line in lines):
+        return text
+    header: list[str] = []
+    segments: list[list[str]] = []
+    current: list[str] = []
+    for line in lines:
+        if not line.startswith("#"):
+            segments.append(current + [line])
+            current = []
+        elif segments or current or line.startswith(_SEGMENT_TAGS):
+            current.append(line)
+        else:
+            header.append(line)
+    if len(segments) <= keep:
+        return text
+    dropped, kept = segments[:-keep], segments[-keep:]
+    key = init = None
+    discontinuities = 0
+    for seg in dropped:
+        for line in seg:
+            if line.startswith("#EXT-X-KEY:"):
+                key = line
+            elif line.startswith("#EXT-X-MAP:"):
+                init = line
+            elif line == "#EXT-X-DISCONTINUITY":
+                discontinuities += 1
+    carry = [t for t, tag in ((key, "#EXT-X-KEY:"), (init, "#EXT-X-MAP:"))
+             if t and not any(x.startswith(tag) for x in kept[0])]
+    kept[0] = carry + kept[0]
+    out: list[str] = []
+    has_media = has_disc = False
+    for line in header:
+        if line.startswith("#EXT-X-MEDIA-SEQUENCE:"):
+            line = f"#EXT-X-MEDIA-SEQUENCE:{int(line.split(':', 1)[1] or 0) + len(dropped)}"
+            has_media = True
+        elif line.startswith("#EXT-X-DISCONTINUITY-SEQUENCE:"):
+            line = f"#EXT-X-DISCONTINUITY-SEQUENCE:{int(line.split(':', 1)[1] or 0) + discontinuities}"
+            has_disc = True
+        out.append(line)
+    extra = [] if has_media else [f"#EXT-X-MEDIA-SEQUENCE:{len(dropped)}"]
+    if discontinuities and not has_disc:
+        extra.append(f"#EXT-X-DISCONTINUITY-SEQUENCE:{discontinuities}")
+    out = out[:1] + extra + out[1:]
+    return "\n".join(out + [line for seg in kept for line in seg] + current) + "\n"
+
+
 def rewrite(text: str, base_url: str, register: Register) -> str:
     out: list[str] = []
     next_is_playlist = False
