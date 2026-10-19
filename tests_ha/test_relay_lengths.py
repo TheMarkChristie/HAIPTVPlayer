@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from homeassistant.core import HomeAssistant
 
-from conftest import setup_xtream
+from conftest import resolve, setup_xtream
 
 
 async def test_relay_asks_uncompressed_and_drops_a_packed_length(hass: HomeAssistant, provider, aioclient_mock,
@@ -15,8 +15,8 @@ async def test_relay_asks_uncompressed_and_drops_a_packed_length(hass: HomeAssis
     s = (await ws.receive_json())["result"]
     client = await hass_client_no_auth()
     text = await (await client.get(s["url"])).text()
-    first = [line for line in text.splitlines() if line.startswith("s/")][0]
-    resp = await client.get(s["url"].rsplit("/", 1)[0] + "/" + first)
+    first = resolve(s["url"], [line for line in text.splitlines() if line and not line.startswith("#")][0])
+    resp = await client.get(first)
     body = await resp.read()
     assert resp.status == 200 and len(body) == 562
     assert resp.headers.get("Content-Length") in (None, str(len(body)))          # never the packed 27
@@ -31,6 +31,6 @@ async def test_plain_segments_keep_their_length(hass: HomeAssistant, provider, h
     s = (await ws.receive_json())["result"]
     client = await hass_client_no_auth()
     text = await (await client.get(s["url"])).text()
-    first = [line for line in text.splitlines() if line.startswith("s/")][0]
-    resp = await client.get(s["url"].rsplit("/", 1)[0] + "/" + first)
+    first = resolve(s["url"], [line for line in text.splitlines() if line and not line.startswith("#")][0])
+    resp = await client.get(first)
     assert resp.status == 200 and len(await resp.read()) == 562

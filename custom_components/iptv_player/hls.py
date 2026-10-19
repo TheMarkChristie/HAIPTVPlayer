@@ -1,8 +1,7 @@
 """HLS playlist rewriting for the stream relay. Pure Python.
 
 Every address in a playlist (variant playlists, segments, encryption keys, subtitle and audio renditions, init
-sections) is made absolute against the playlist's own final address and replaced by a short relative one the relay
-answers, so the player only ever talks to Home Assistant: no mixed content on an https page, no CORS, and the
+sections) is made absolute against the playlist's own final address and replaced by a short path the relay answers, so the player only ever talks to Home Assistant: no mixed content on an https page, no CORS, and the
 provider address (with an Xtream password in it) never reaches a device."""
 from __future__ import annotations
 

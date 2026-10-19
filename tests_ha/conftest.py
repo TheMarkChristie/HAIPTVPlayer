@@ -94,7 +94,16 @@ def provider(aioclient_mock) -> dict[str, Any]:
     aioclient_mock.get(f"{PANEL}/xmltv.php", content=guide_xml({"BBCOneScotland.uk": "BBC One Scotland", "SkySportsF1.uk": "Sky Sports F1"}),
                        headers={"Content-Type": "application/xml"})
     aioclient_mock.get(FREE_UK, content=guide_xml({"BBC.Two.HD.uk": "BBC Two HD", "STV.HD.uk": "STV HD"}))
-    for sid in (101, 102, 103, 201):
+    # channel 103 is two levels, as NRK: a master list -> an encrypted variant -> its key and segment
+    aioclient_mock.get(f"{STREAMS}/live/user/secret/103.m3u8", text="#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=800000\nv/103/low.m3u8\n",
+                       headers={"Content-Type": "application/x-mpegurl"})
+    aioclient_mock.get(f"{STREAMS}/live/user/secret/v/103/low.m3u8",
+                       text='#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-MEDIA-SEQUENCE:7\n'
+                            '#EXT-X-KEY:METHOD=AES-128,URI="https://keys.example/k.key",IV=0x01\n#EXTINF:4.0,\nseg_7.ts\n',
+                       headers={"Content-Type": "application/x-mpegurl"})
+    aioclient_mock.get("https://keys.example/k.key", content=bytes(range(16)), headers={"Content-Type": "application/octet-stream"})
+    aioclient_mock.get(f"{STREAMS}/live/user/secret/v/103/seg_7.ts", content=b"\x15" * 376, headers={"Content-Type": "video/mp2t"})
+    for sid in (101, 102, 201):
         aioclient_mock.get(f"{STREAMS}/live/user/secret/{sid}.m3u8",
                            text=f"#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXTINF:10.0,\n/hls/tok{sid}/{sid}_0.ts\n#EXTINF:10.0,\n/hls/tok{sid}/{sid}_1.ts\n",
                            headers={"Content-Type": "application/x-mpegurl"})
@@ -104,6 +113,13 @@ def provider(aioclient_mock) -> dict[str, Any]:
                            headers={"Content-Type": "video/mp2t", **packed})
     aioclient_mock.get("http://logos.example/bbc1.png", content=b"\x89PNG\r\n\x1a\nlogo", headers={"Content-Type": "image/png"})
     return state
+
+
+def resolve(playlist_url: str, ref: str) -> str:
+    """An address in a playlist, resolved the way a player resolves it: against the playlist's own address."""
+    from urllib.parse import urljoin
+
+    return urljoin(playlist_url, ref)
 
 
 async def _light_setup(hass: HomeAssistant, config: Any) -> bool:

@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.setup import async_setup_component
 
-from conftest import DOMAIN, FREE_UK, PANEL, setup_xtream
+from conftest import DOMAIN, FREE_UK, PANEL, resolve, setup_xtream
 
 
 async def test_config_flow_xtream(hass: HomeAssistant, provider) -> None:
@@ -108,9 +108,8 @@ async def test_relay_and_connection_limit(hass: HomeAssistant, provider, hass_ws
     assert resp.status == 200 and resp.headers["Access-Control-Allow-Origin"] == "*"
     text = await resp.text()
     assert "streams.example" not in text and "secret" not in text
-    segment = [line for line in text.splitlines() if line.startswith("s/")][0]
-    base = s["url"].rsplit("/", 1)[0]
-    resp = await client.get(f"{base}/{segment}")
+    segment = resolve(s["url"], [line for line in text.splitlines() if line and not line.startswith("#")][0])
+    resp = await client.get(segment)
     assert resp.status == 200 and resp.headers["Content-Type"] == "video/mp2t" and (await resp.read())[:1] == b"G"
 
     # the login allows one stream and this one was just asked for: a second channel is refused, not pushed off

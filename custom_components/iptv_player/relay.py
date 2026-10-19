@@ -65,7 +65,9 @@ class Session:
         return f"{RELAY_URL}/{self.token}/" + ("index.m3u8" if self.kind == PLAY_HLS else "live")
 
     def register(self, url: str, is_list: bool) -> str:
-        """The relative address the relay answers for an upstream address."""
+        """The relay's own address for an upstream address, as a path from the root: a player resolves an address
+        against the playlist it is in, and variant playlists live one folder down (p/), so a relative "s/..." in
+        one pointed at p/s/... and NRK's keys answered 404 (19 Oct 2026)."""
         key = self.keys.get(url)
         if key is not None and key in self.urls:
             self.urls.move_to_end(key)
@@ -76,7 +78,7 @@ class Session:
             while len(self.urls) > URLS_MAX:
                 _, (old, _) = self.urls.popitem(last=False)
                 self.keys.pop(old, None)
-        return f"p/{key}.m3u8" if is_list else f"s/{key}{extension(url)}"
+        return f"{RELAY_URL}/{self.token}/" + (f"p/{key}.m3u8" if is_list else f"s/{key}{extension(url)}")
 
 
 class Relay:
