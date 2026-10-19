@@ -139,7 +139,7 @@ def catalog_from_m3u(entries: Iterable[M3UEntry], header_guides: list[str] | Non
 # ---- the selection ----------------------------------------------------------------------------------------------------
 
 def empty_selection() -> dict[str, Any]:
-    return {"groups": {}, "channels": {}, "group_order": [], "channel_order": []}
+    return {"groups": {}, "channels": {}, "group_order": [], "channel_order": [], "group_names": {}}
 
 
 def normal_selection(data: Any) -> dict[str, Any]:
@@ -149,7 +149,13 @@ def normal_selection(data: Any) -> dict[str, Any]:
         sel["channels"] = {str(k): dict(v) for k, v in (data.get("channels") or {}).items() if isinstance(v, dict)}
         sel["group_order"] = [str(x) for x in data.get("group_order") or []]
         sel["channel_order"] = [str(x) for x in data.get("channel_order") or []]
+        sel["group_names"] = {str(k): str(v) for k, v in (data.get("group_names") or {}).items() if str(v).strip()}
     return sel
+
+
+def group_name(group: Group, sel: dict[str, Any]) -> str:
+    """The group's name as Mark renamed it, else the provider's."""
+    return str(sel.get("group_names", {}).get(group.id) or "").strip() or group.name
 
 
 def is_shown(channel: Channel, sel: dict[str, Any]) -> bool:
@@ -189,6 +195,7 @@ def apply_changes(sel: dict[str, Any], changes: list[dict[str, Any]], group_orde
                   channel_order: list[str] | None = None) -> dict[str, Any]:
     """A new selection with the Manage screen's changes:
         {"group": id, "on": bool}                       tick or untick a group
+        {"group": id, "name": str | None}               rename a group ("" or None: the provider's name)
         {"channel": key, "on": bool | None}             show, hide, or follow the group again (None)
         {"channel": key, "name": str | None}            rename ("" or None: the provider's name)
         {"channel": key, "guide": str | None}           the guide channel ("<source>|<id>"; "" or None: automatic)
@@ -203,10 +210,17 @@ def apply_changes(sel: dict[str, Any], changes: list[dict[str, Any]], group_orde
             continue
         if "group" in ch:
             gid = str(ch["group"])
-            if ch.get("on"):
-                out["groups"][gid] = True
-            else:
-                out["groups"].pop(gid, None)
+            if "on" in ch:
+                if ch["on"]:
+                    out["groups"][gid] = True
+                else:
+                    out["groups"].pop(gid, None)
+            if "name" in ch:
+                name = str(ch["name"] or "").strip()
+                if name:
+                    out["group_names"][gid] = name
+                else:
+                    out["group_names"].pop(gid, None)
             continue
         if "channel" not in ch:
             continue

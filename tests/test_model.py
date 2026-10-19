@@ -139,3 +139,13 @@ def test_playable_url():
     assert not m.playable_url("https://www.youtube.com/c/x/live")
     assert not m.playable_url("https://cdn/x.mpd?token=1")
     assert not m.playable_url("rtmp://a/b")
+
+
+def test_rename_group_keeps_its_tick():
+    cat = _cat()
+    sel = m.apply_changes(m.empty_selection(), [{"group": "uk", "on": True}])
+    sel = m.apply_changes(sel, [{"group": "uk", "name": "British"}])
+    assert sel["groups"] == {"uk": True} and m.group_name(cat.group("uk"), sel) == "British"
+    sel = m.apply_changes(sel, [{"group": "uk", "name": "  "}])
+    assert m.group_name(cat.group("uk"), sel) == "UK" and "uk" not in sel["group_names"]
+    assert m.normal_selection({"groups": {"uk": True}})["group_names"] == {}        # selections saved before names

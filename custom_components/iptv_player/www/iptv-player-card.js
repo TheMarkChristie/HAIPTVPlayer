@@ -46,6 +46,8 @@
       skipped: (n) => `${n} channels skipped (YouTube, Twitch or DASH; they cannot play here)`, listRead: (d) => `Channel list read ${d}`,
       saved: "Saved", more: (n) => `Show ${n} more`, noMatch: "Nothing matches", minutesLeft: (m) => `${m} min left`, unavailable: "unavailable",
       tvHint: "Arrows move, OK plays, channel up and down change channel",
+      tvGroups: "Groups on the TV page", tvGroupsHint: "Rename them and set their order for every screen. Groups with the same name show as one tab.",
+      toTop: "Top",
     },
     nb: {
       title: "TV", notSetUp: "IPTV Player er ikke satt opp ennå. Legg den til under Innstillinger > Enheter og tjenester.",
@@ -65,6 +67,8 @@
       skipped: (n) => `${n} kanaler hoppet over (YouTube, Twitch eller DASH; de kan ikke spilles her)`, listRead: (d) => `Kanalliste lest ${d}`,
       saved: "Lagret", more: (n) => `Vis ${n} til`, noMatch: "Ingenting passer", minutesLeft: (m) => `${m} min igjen`, unavailable: "utilgjengelig",
       tvHint: "Piltastene flytter, OK spiller, kanal opp og ned bytter kanal",
+      tvGroups: "Grupper på TV-siden", tvGroupsHint: "Gi dem nye navn og bestem rekkefølgen for alle skjermer. Grupper med samme navn vises som én fane.",
+      toTop: "Øverst",
     },
   };
 
@@ -165,6 +169,10 @@
     .gsearch { flex: 1 0 100%; padding: 4px 0 6px 30px; display: flex; flex-direction: column; gap: 4px; }
     .gsearch button { text-align: left; }
     .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .ibtn[disabled] { opacity: 0.35; cursor: default; background: none; }
+    .m-head { margin: 14px 0 4px; font-size: 1em; font-weight: 600; color: var(--primary-text-color); }
+    .mrow.tvg { flex-wrap: wrap; }
+    .mrow.tvg .tvname { flex: 1 1 220px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     dialog.sheet { border: 0; padding: 0; border-radius: 16px; width: min(560px, calc(100vw - 32px)); background: var(--card-background-color, #1e1e1e); color: var(--primary-text-color); box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
     dialog.sheet::backdrop { background: rgba(0,0,0,0.55); }
@@ -353,6 +361,12 @@
       const names = new Map(((this._data && this._data.groups) || []).map((g) => [g.id, g.name]));
       const scoped = groups ? all.filter((c) => groups.has(String(names.get(c.group) || "").toLowerCase())) : all;
       if (this._filter === "fav") return scoped.filter((c) => this._favs.has(c.uid));
+      if (this._filter && this._filter.startsWith("n:")) {
+        // a tab is a group name: groups from different sources with the same name show together
+        const want = this._filter.slice(2);
+        const ids = new Set(((this._data && this._data.groups) || []).filter((g) => g.name.toLowerCase() === want).map((g) => g.id));
+        return scoped.filter((c) => ids.has(c.group));
+      }
       if (this._filter && this._filter !== "all") return scoped.filter((c) => c.group === this._filter);
       return scoped;
     }
@@ -389,7 +403,9 @@
       const groups = (this._data.groups || []).filter((g) => this._data.channels.some((c) => c.group === g.id));
       const scoped = this._config.groups && this._config.groups.length
         ? groups.filter((g) => this._config.groups.map((x) => String(x).toLowerCase()).includes(g.name.toLowerCase())) : groups;
-      const items = [["all", this._t("all")], ...(this._favs.size ? [["fav", this._t("favourites")]] : []), ...scoped.map((g) => [g.id, g.name])];
+      const named = [];
+      scoped.forEach((g) => { const k = `n:${g.name.toLowerCase()}`; if (!named.some(([id]) => id === k)) named.push([k, g.name]); });
+      const items = [["all", this._t("all")], ...(this._favs.size ? [["fav", this._t("favourites")]] : []), ...named];
       if (!items.some(([id]) => id === this._filter)) this._filter = "all";
       chips.innerHTML = items.length > 2 || this._favs.size
         ? items.map(([id, name]) => `<button class="chip${id === this._filter ? " on" : ""}" role="tab" aria-selected="${id === this._filter}" data-filter="${esc(id)}">${esc(name)}</button>`).join("")
@@ -857,12 +873,12 @@
       if (cat.skipped) facts.push(esc(this._t("skipped", cat.skipped)));
       if (cat.guide) facts.push(esc(this._t("matched", cat.guide.matched, cat.guide.shown)));
       const sources = (cat.guide && cat.guide.sources) || [];
-      const groups = cat.groups.filter((g) => !q || g.name.toLowerCase().includes(q));
+      const groups = cat.groups.filter((g) => !q || g.name.toLowerCase().includes(q) || (g.display || "").toLowerCase().includes(q));
       const rows = groups.map((g, i) => {
         const open = m.open.has(g.id);
         const chans = open ? (m.channels[g.id] || null) : null;
         return `<div class="mrow group">
-            <label><input type="checkbox" data-group="${esc(g.id)}" data-focus="g:${esc(g.id)}"${g.on ? " checked" : ""}><span>${esc(g.name)}</span></label>
+            <label><input type="checkbox" data-group="${esc(g.id)}" data-focus="g:${esc(g.id)}"${g.on ? " checked" : ""}><span>${esc(g.display || g.name)}${g.display ? ` <span class="count">(${esc(g.name)})</span>` : ""}</span></label>
             <span class="count">${esc(this._t("shownOf", g.shown, g.total))}</span>
             <button class="ibtn" data-gup="${esc(g.id)}" data-focus="gu:${esc(g.id)}" aria-label="${esc(this._t("moveUp"))}: ${esc(g.name)}"${i === 0 || q ? " disabled" : ""}>▲</button>
             <button class="ibtn" data-gdown="${esc(g.id)}" data-focus="gd:${esc(g.id)}" aria-label="${esc(this._t("moveDown"))}: ${esc(g.name)}"${i === groups.length - 1 || q ? " disabled" : ""}>▼</button>
@@ -873,6 +889,7 @@
         ? `<div class="mrow group"><span>${esc(this._t("search"))}: “${esc(m.query)}”</span></div>${m.search.length ? m.search.map((c, j) => this._manageChannel(c, j, m.search.length, false)).join("") : `<div class="msg">${esc(this._t("noMatch"))}</div>`}`
         : "";
       body.innerHTML = `<div class="manage">
+        ${this._tvGroups()}
         ${entries.length > 1 ? `<div class="tabs">${entries.map((e) => `<button class="chip${e.entry_id === m.entry ? " on" : ""}" data-entry="${esc(e.entry_id)}">${esc(e.title)}</button>`).join("")}</div>` : ""}
         <div class="m-top"><input type="search" placeholder="${esc(this._t("search"))}" aria-label="${esc(this._t("search"))}" value="${esc(m.query)}" data-focus="search"></div>
         <div class="m-facts">${facts.join(" · ")}<br>${esc(this._t("sources"))}: ${sources.map((s) => `${esc(s.label)} (${s.error ? `<span class="err">${esc(s.error)}</span>` : esc(this._t("channelsInGuide", s.channels))})`).join(", ") || "-"}</div>
@@ -891,6 +908,16 @@
         inp.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); inp.blur(); } if (ev.key === "Escape") { m.renameFor = null; this._renderManage(); } });
         inp.addEventListener("change", () => { m.renameFor = null; this._select([{ channel: inp.dataset.rename, name: inp.value }]); });
       });
+      body.querySelectorAll("input[data-grename]").forEach((inp) => {
+        inp.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); inp.blur(); } if (ev.key === "Escape") { m.groupRename = null; this._renderManage(); } });
+        inp.addEventListener("change", () => {
+          // "<entry_id>:<group id>": the entry id has no colon, the group id may
+          const uid = inp.dataset.grename;
+          const cut = uid.indexOf(":");
+          m.groupRename = null;
+          this._select([{ group: uid.slice(cut + 1), name: inp.value }], null, uid.slice(0, cut));
+        });
+      });
       body.querySelectorAll("input[data-gsearch]").forEach((inp) => {
         inp.addEventListener("input", () => {
           clearTimeout(this._gsTimer);
@@ -906,6 +933,45 @@
       if (gs && m.guideFor && focusKey !== "search") gs.focus();
       const rn = body.querySelector("input[data-rename]");
       if (rn && m.renameFor) rn.focus();
+      const gr = body.querySelector("input[data-grename]");
+      if (gr && m.groupRename) gr.focus();
+    }
+
+    /* the groups as the TV page shows them, every source together: rename them and set their order (kept by Home
+       Assistant). Groups with the same name show as one tab. */
+    _tvGroups() {
+      const groups = (this._data && this._data.groups) || [];
+      if (!groups.length) return "";
+      const titles = new Map(((this._data && this._data.entries) || []).map((e) => [e.entry_id, e.title]));
+      const many = titles.size > 1;
+      const renaming = this._manage.groupRename;
+      const rows = groups.map((g, i) => `<div class="mrow group tvg">
+          <span class="tvname">${esc(g.name)}${g.original && g.original !== g.name ? ` <span class="count">(${esc(g.original)})</span>` : ""}${many ? ` <span class="count">· ${esc(titles.get(g.entry_id) || "")}</span>` : ""}</span>
+          <button class="ibtn" data-tvg-rename="${esc(g.id)}" data-focus="tr:${esc(g.id)}">${esc(this._t("rename"))}</button>
+          <button class="ibtn" data-tvg-top="${esc(g.id)}" data-focus="tt:${esc(g.id)}"${i === 0 ? " disabled" : ""}>${esc(this._t("toTop"))}</button>
+          <button class="ibtn" data-tvg-up="${esc(g.id)}" data-focus="tu:${esc(g.id)}" aria-label="${esc(this._t("moveUp"))}: ${esc(g.name)}"${i === 0 ? " disabled" : ""}>▲</button>
+          <button class="ibtn" data-tvg-down="${esc(g.id)}" data-focus="td:${esc(g.id)}" aria-label="${esc(this._t("moveDown"))}: ${esc(g.name)}"${i === groups.length - 1 ? " disabled" : ""}>▼</button>
+          ${renaming === g.id ? `<div class="gsearch"><input type="text" data-grename="${esc(g.id)}" value="${esc(g.original && g.original !== g.name ? g.name : "")}" placeholder="${esc(g.original || g.name)}" aria-label="${esc(this._t("rename"))}: ${esc(g.original || g.name)}"></div>` : ""}
+        </div>`).join("");
+      return `<h3 class="m-head">${esc(this._t("tvGroups"))}</h3><div class="m-facts">${esc(this._t("tvGroupsHint"))}</div>${rows}<h3 class="m-head">${esc(this._t("manage"))}</h3>`;
+    }
+
+    async _groupOrder(id, how) {
+      const order = ((this._data && this._data.groups) || []).map((g) => g.id);
+      const i = order.indexOf(id);
+      if (i < 0) return;
+      if (how === "top") { order.splice(i, 1); order.unshift(id); } else {
+        const j = i + (how === "up" ? -1 : 1);
+        if (j < 0 || j >= order.length) return;
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+      try {
+        await this._hass.callWS({ type: "iptv_player/group_order", order });
+        this._status(this._t("saved"));
+      } catch (e) {
+        this._status(String((e && e.message) || e), true);
+      }
+      await this._load();
     }
 
     _manageChannel(c, j, count, orderable) {
@@ -932,10 +998,10 @@
       else if (box.dataset.channel) this._select([{ channel: box.dataset.channel, on: box.checked }]);
     }
 
-    async _select(changes, extra) {
+    async _select(changes, extra, entryId) {
       const m = this._manage;
       try {
-        await this._hass.callWS({ type: "iptv_player/select", entry_id: m.entry, changes, ...(extra || {}) });
+        await this._hass.callWS({ type: "iptv_player/select", entry_id: entryId || m.entry, changes, ...(extra || {}) });
         this._status(this._t("saved"));
       } catch (e) {
         this._status(String((e && e.message) || e), true);
@@ -949,6 +1015,10 @@
       if (!t) return;
       const m = this._manage;
       const cat = m.groups;
+      if (t.dataset.tvgRename) { m.groupRename = m.groupRename === t.dataset.tvgRename ? null : t.dataset.tvgRename; this._renderManage(); return; }
+      if (t.dataset.tvgTop) { this._groupOrder(t.dataset.tvgTop, "top"); return; }
+      if (t.dataset.tvgUp) { this._groupOrder(t.dataset.tvgUp, "up"); return; }
+      if (t.dataset.tvgDown) { this._groupOrder(t.dataset.tvgDown, "down"); return; }
       if (t.dataset.entry) { m.entry = t.dataset.entry; m.open.clear(); m.query = ""; this._loadCatalog(true); return; }
       if (t.dataset.gopen) {
         const gid = t.dataset.gopen;

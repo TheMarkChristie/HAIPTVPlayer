@@ -28,6 +28,11 @@ It ships no channels or playlists: it plays what you sign in to.
 show its channels; channels the provider adds to a ticked group later show by themselves. Open a group to untick
 single channels, rename them, move them up and down, preview them, or pick their guide channel by hand.
 
+**Groups on the TV page**, at the top of Manage channels, lists the groups that show, from every source together:
+rename them and set their order (Top, up, down). Names and order are kept by Home Assistant, so every screen shows the
+same tabs, and groups with the same name (say the provider's "UNITED KINGDOM" and a free list's "UK", both renamed
+"UK") show as one tab.
+
 ## The guide
 
 Each source reads its guides once a day (04:00 by default) into Home Assistant's cache folder, which backups skip:

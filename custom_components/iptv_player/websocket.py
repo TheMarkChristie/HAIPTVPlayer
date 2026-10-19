@@ -26,12 +26,14 @@ from .const import (
     CONF_PLAYERS, DOMAIN, EVENT_UPDATED, KIND_XTREAM, SIGNED_URL_HOURS, WS_CATALOG, WS_CHANNELS, WS_GUIDE, WS_RELEASE,
     WS_SELECT, WS_STREAM, WS_SUBSCRIBE,
 )
+from .layout import async_get_layout, sort_groups
 from .model import (
-    display_name, is_shown, now_next, ordered_groups, programme_dict, search_guide_channels, tidy_name, window,
+    display_name, group_name, is_shown, now_next, ordered_groups, programme_dict, search_guide_channels, tidy_name, window,
 )
 from .relay import RelayFull
 
 WS_GUIDE_SEARCH = f"{DOMAIN}/guide_search"
+WS_GROUP_ORDER = f"{DOMAIN}/group_order"
 _SIGNED = f"{DOMAIN}_signed_urls"
 _SIGNED_MAX = 6000
 
@@ -94,7 +96,8 @@ def _channel(hass: HomeAssistant, token_id: str | None, c: Any, ch: Any, now: in
 
 @callback
 def async_register_websocket(hass: HomeAssistant) -> None:
-    for command in (ws_channels, ws_guide, ws_stream, ws_release, ws_subscribe, ws_catalog, ws_select, ws_guide_search):
+    for command in (ws_channels, ws_guide, ws_stream, ws_release, ws_subscribe, ws_catalog, ws_select, ws_guide_search,
+                    ws_group_order):
         websocket_api.async_register_command(hass, command)
 
 
@@ -118,7 +121,7 @@ async def ws_channels(hass: HomeAssistant, connection: websocket_api.ActiveConne
     entries, groups, channels, configured = [], [], [], []
     for c in loaded:
         shown = c.shown()
-        names = {g.id: g.name for g in c.catalog.groups}
+        names = {g.id: group_name(g, c.selection) for g in c.catalog.groups}
         entries.append({"entry_id": c.entry.entry_id, "title": c.entry.title, "kind": c.kind, "shown": len(shown),
                         "account": _account(c), "guide_updated": c.guide.state.built_at, "version": c.version})
         seen: list[str] = []
@@ -126,8 +129,14 @@ async def ws_channels(hass: HomeAssistant, connection: websocket_api.ActiveConne
             if ch.group not in seen:
                 seen.append(ch.group)
             channels.append(_channel(hass, token_id, c, ch, now))
-        groups += [{"id": f"{c.entry.entry_id}:{gid}", "entry_id": c.entry.entry_id, "name": names.get(gid, gid)} for gid in seen]
+        originals = {g.id: g.name for g in c.catalog.groups}
+        groups += [{"id": f"{c.entry.entry_id}:{gid}", "entry_id": c.entry.entry_id, "name": names.get(gid, gid),
+                    "original": originals.get(gid, gid)} for gid in seen]
         configured += list(c.options.get(CONF_PLAYERS) or [])
+    # the groups in Mark's order across every source, each group's channels keeping their own order
+    groups = sort_groups(groups, (await async_get_layout(hass)).group_order)
+    rank = {g["id"]: i for i, g in enumerate(groups)}
+    channels.sort(key=lambda ch: rank.get(ch["group"], len(rank)))
     connection.send_result(msg["id"], {
         "entries": entries, "groups": groups, "channels": channels, "now": now,
         "players": players(hass, configured), "is_admin": bool(connection.user and connection.user.is_admin),
@@ -263,8 +272,8 @@ async def ws_catalog(hass: HomeAssistant, connection: websocket_api.ActiveConnec
             shown[ch.group] = shown.get(ch.group, 0) + 1
     connection.send_result(msg["id"], {
         "entry_id": c.entry.entry_id, "title": c.entry.title, "kind": c.kind,
-        "groups": [{"id": g.id, "name": g.name, "on": bool(sel["groups"].get(g.id)), "total": totals.get(g.id, 0),
-                    "shown": shown.get(g.id, 0)} for g in ordered_groups(c.catalog, sel)],
+        "groups": [{"id": g.id, "name": g.name, "display": sel["group_names"].get(g.id, ""), "on": bool(sel["groups"].get(g.id)),
+                    "total": totals.get(g.id, 0), "shown": shown.get(g.id, 0)} for g in ordered_groups(c.catalog, sel)],
         "channels_total": len(c.catalog.channels), "skipped": c.catalog.skipped, "catalog_at": c.catalog_at,
         "guide": {"sources": c.guide.public_status(), "built_at": c.guide.state.built_at,
                   "matched": len(matches), "shown": len(c.shown())},
@@ -300,3 +309,14 @@ async def ws_guide_search(hass: HomeAssistant, connection: websocket_api.ActiveC
         connection.send_result(msg["id"], {"results": []})
         return
     connection.send_result(msg["id"], {"results": search_guide_channels(loaded[0].guide.state.sources, msg["query"])})
+
+
+@websocket_api.websocket_command({vol.Required("type"): WS_GROUP_ORDER, vol.Required("order"): [str]})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_group_order(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Admins: the order of the groups on the TV page across every source ("<entry_id>:<group_id>" ids)."""
+    layout = await async_get_layout(hass)
+    await layout.async_save_order(msg["order"])
+    hass.bus.async_fire(EVENT_UPDATED, {"entry_id": None, "what": "layout"})
+    connection.send_result(msg["id"], {"order": layout.group_order})

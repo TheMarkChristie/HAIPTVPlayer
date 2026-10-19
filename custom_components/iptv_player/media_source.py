@@ -7,7 +7,7 @@ from homeassistant.components.media_source import BrowseMediaSource, MediaSource
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN, NAME, PLAY_HLS
-from .model import tidy_name
+from .model import group_name, tidy_name
 
 
 async def async_get_media_source(hass: HomeAssistant) -> MediaSource:
@@ -51,7 +51,7 @@ class IPTVMediaSource(MediaSource):
             raise BrowseError("That source is not loaded")
         shown = c.shown()
         if len(parts) == 1:
-            names = {g.id: g.name for g in c.catalog.groups}
+            names = {g.id: group_name(g, c.selection) for g in c.catalog.groups}
             groups: list[str] = []
             for ch in shown:
                 if ch.group not in groups:
@@ -65,7 +65,7 @@ class IPTVMediaSource(MediaSource):
             can_play=True, can_expand=False,
             thumbnail=ch.logo if ch.logo and ch.logo.startswith("https://") else None,
         ) for ch in shown if ch.group == gid]
-        return self._folder(item.identifier, next((g.name for g in c.catalog.groups if g.id == gid), gid), children)
+        return self._folder(item.identifier, next((group_name(g, c.selection) for g in c.catalog.groups if g.id == gid), gid), children)
 
     def _folder(self, identifier: str, title: str, children: list[BrowseMediaSource] | None = None) -> BrowseMediaSource:
         return BrowseMediaSource(

@@ -27,6 +27,7 @@ BROWSERS = [r"C:\Program Files\Google\Chrome\Application\chrome.exe",
             r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"]
 COLOURS = ["#bb1919", "#0a4a8f", "#00704a", "#5b2a86", "#d4561b", "#111", "#0f7b8a", "#7a1f4e"]
 ENTRY = "01KPROVIDER"
+RENAMED = {"UNITED KINGDOM": "UK", "UK-SPORTS": "Sport"}
 FREE = "01KFREE"
 
 UK = [("BBC ONE SCOTLAND", "Reporting Scotland", "The One Show"), ("BBC 2", "Eggheads", "Antiques Road Trip"),
@@ -52,7 +53,7 @@ def sample() -> dict:
     channels, groups, guide = [], [], {}
 
     def add(entry: str, gid: str, gname: str, rows: list, start: int) -> None:
-        groups.append({"id": f"{entry}:{gid}", "entry_id": entry, "name": gname})
+        groups.append({"id": f"{entry}:{gid}", "entry_id": entry, "name": RENAMED.get(gname, gname), "original": gname})
         for n, (name, cur, nxt) in enumerate(rows):
             key = str(start + n)
             s = base - 600 - (n % 4) * 300
