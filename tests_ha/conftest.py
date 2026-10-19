@@ -98,7 +98,10 @@ def provider(aioclient_mock) -> dict[str, Any]:
         aioclient_mock.get(f"{STREAMS}/live/user/secret/{sid}.m3u8",
                            text=f"#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXTINF:10.0,\n/hls/tok{sid}/{sid}_0.ts\n#EXTINF:10.0,\n/hls/tok{sid}/{sid}_1.ts\n",
                            headers={"Content-Type": "application/x-mpegurl"})
-        aioclient_mock.get(f"{STREAMS}/hls/tok{sid}/{sid}_0.ts", content=b"G" + bytes(187) * 3, headers={"Content-Type": "video/mp2t"})
+        # channel 201's first segment comes gzip-marked with the packed length, as NRK's subtitle segments do
+        packed = {"Content-Encoding": "gzip", "Content-Length": "27"} if sid == 201 else {}
+        aioclient_mock.get(f"{STREAMS}/hls/tok{sid}/{sid}_0.ts", content=b"G" + bytes(187) * 3,
+                           headers={"Content-Type": "video/mp2t", **packed})
     aioclient_mock.get("http://logos.example/bbc1.png", content=b"\x89PNG\r\n\x1a\nlogo", headers={"Content-Type": "image/png"})
     return state
 

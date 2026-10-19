@@ -582,6 +582,7 @@
 
     async _open(c) {
       this._stopPlayer(true);
+      this._lastError = "";
       this._veil("spin", this._t("starting"));
       let s;
       try {
@@ -609,6 +610,7 @@
           this._player = { kind: "hls", obj: hls };
           hls.on(Hls.Events.ERROR, (_e, data) => {
             if (!data || !data.fatal) return;
+            this._lastError = [data.details, data.response && data.response.code].filter(Boolean).join(" ");
             if (data.type === Hls.ErrorTypes.MEDIA_ERROR && this._attempts < 2) { this._attempts += 1; hls.recoverMediaError(); return; }
             this._recover(data.response && data.response.code);
           });
@@ -625,7 +627,8 @@
         if (mpegts && mpegts.isSupported() && mpegts.getFeatureList().mseLivePlayback) {
           const p = mpegts.createPlayer({ type: "mpegts", isLive: true, url: s.url }, { enableWorker: false, liveBufferLatencyChasing: true, lazyLoad: false });
           this._player = { kind: "mpegts", obj: p };
-          p.on(mpegts.Events.ERROR, (type) => {
+          p.on(mpegts.Events.ERROR, (type, detail) => {
+            this._lastError = [type, detail].filter(Boolean).join(" ");
             if (type === mpegts.ErrorTypes.MEDIA_ERROR) { this._nativeRaw(s); return; }   // not MPEG-TS: radio and the like
             this._recover();
           });
@@ -647,6 +650,8 @@
 
     _onVideoError() {
       if (!this._session || !this._player || this._player.kind !== "native") return;
+      const err = this._video.error;
+      this._lastError = err ? `media error ${err.code}${err.message ? `: ${err.message}` : ""}` : "media error";
       this._recover();
     }
 
@@ -655,7 +660,8 @@
     _recover(code) {
       const c = this._current && this._byUid(this._current);
       if (!c || this._attempts >= 2) {
-        this._veil("error", code === 403 ? this._t("busy") : "");
+        // the player's own reason, so a failure explains itself ("fragLoadError 404", "keyLoadError" ...)
+        this._veil("error", code === 403 ? this._t("busy") : (this._lastError || ""));
         this._stopPlayer(true);
         return;
       }

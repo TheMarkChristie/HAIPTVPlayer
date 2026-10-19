@@ -227,7 +227,9 @@ async def _pipe(hass: HomeAssistant, request: web.Request, s: Session, url: str,
     """Pass one upstream answer through, a chunk at a time, until it ends or the player goes away. Every chunk
     counts as the session being watched, so a continuous stream is never taken for an idle one."""
     session = async_get_clientsession(hass)
-    headers = s.headers
+    # uncompressed: aiohttp would unpack a gzip answer while its Content-Length still counted the packed bytes, and a
+    # player told 27 bytes that gets 7 waits for the rest (NRK's subtitle segments, 19 Oct 2026)
+    headers = {**s.headers, "Accept-Encoding": "identity"}
     try:
         resp = await session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=None, sock_connect=15, sock_read=30))
     except (aiohttp.ClientError, TimeoutError):
@@ -238,7 +240,7 @@ async def _pipe(hass: HomeAssistant, request: web.Request, s: Session, url: str,
         out = web.StreamResponse(status=200, headers=_headers({"Cache-Control": cache}))
         out.content_type = _media_type(resp.headers.get("Content-Type"))
         length = resp.headers.get("Content-Length")
-        if length and length.isdigit():
+        if length and length.isdigit() and resp.headers.get("Content-Encoding", "identity").lower() == "identity":
             out.content_length = int(length)
         await out.prepare(request)
         try:

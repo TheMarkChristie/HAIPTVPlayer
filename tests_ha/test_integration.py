@@ -206,3 +206,4 @@ async def test_read_capped_reads_every_chunk(hass: HomeAssistant) -> None:
         pass
     else:
         raise AssertionError("no limit")
+
